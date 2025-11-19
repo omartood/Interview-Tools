@@ -18,6 +18,9 @@ export interface InterviewConfig {
   targetRole: string;
   experienceLevel: string;
   companyType: string;
+  jobDescription?: string;
+  resumeText?: string;
+  interviewerPersona?: string;
 }
 
 export interface TranscriptItem {

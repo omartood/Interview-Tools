@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ConnectionState } from '../types';
+import { ConnectionState, TranscriptItem } from '../types';
 import AudioVisualizer from './AudioVisualizer';
 
 interface InterviewSessionProps {
@@ -7,8 +7,10 @@ interface InterviewSessionProps {
   mediaStream: MediaStream | null;
   sendVideoFrame: (base64: string) => void;
   onEndSession: () => void;
-  volume: number;
+  volume: number; // Mic volume
+  aiVolume: number; // AI Output volume
   error: string | null;
+  transcript: TranscriptItem[];
 }
 
 const InterviewSession: React.FC<InterviewSessionProps> = ({
@@ -17,10 +19,13 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   sendVideoFrame,
   onEndSession,
   volume,
-  error
+  aiVolume,
+  error,
+  transcript
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
 
@@ -56,6 +61,11 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       });
     }
   }, [isMuted, mediaStream]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [transcript]);
 
   // Frame Extraction Loop for Video Stream to API
   useEffect(() => {
@@ -132,7 +142,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 p-4 font-inter">
       {/* Header */}
-      <div className="w-full max-w-5xl flex justify-between items-center mb-6">
+      <div className="w-full max-w-6xl flex justify-between items-center mb-6">
         
         {/* Left: Status Pill */}
         <div className="flex-1 flex justify-start">
@@ -171,7 +181,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
 
       {/* Error Message Banner */}
       {error && (
-        <div className="w-full max-w-5xl mb-4 p-4 bg-red-900/20 border border-red-800 rounded-xl flex items-center gap-3 text-red-200 animate-in fade-in slide-in-from-top-2">
+        <div className="w-full max-w-6xl mb-4 p-4 bg-red-900/20 border border-red-800 rounded-xl flex items-center gap-3 text-red-200 animate-in fade-in slide-in-from-top-2">
           <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -180,45 +190,100 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       )}
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl h-[70vh]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl h-[75vh]">
         
-        {/* Video Feed (Left/Center) */}
-        <div className="md:col-span-2 relative bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl ring-1 ring-white/5">
-            <video 
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted // Locally muted to prevent echo
-                className="w-full h-full object-cover transform scale-x-[-1]" 
-            />
-            
-            {/* User Label */}
-            <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shadow-lg">
-                <div className={`w-2 h-2 rounded-full ${isMuted ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-                <span className="text-xs text-white font-medium">You (Candidate)</span>
-                {isMuted && (
-                  <svg className="w-3 h-3 text-white/70 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" crossOrigin="anonymous"/>
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                  </svg>
+        {/* Left Column: Video Feed + Chat Log */}
+        <div className="md:col-span-2 flex flex-col gap-4 h-full">
+          
+          {/* Video Feed (Top) */}
+          <div className="relative bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl ring-1 ring-white/5 flex-shrink-0 h-[60%]">
+              <video 
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted // Locally muted to prevent echo
+                  className="w-full h-full object-cover transform scale-x-[-1]" 
+              />
+              
+              {/* User Label & Mic Visualizer */}
+              <div className="absolute bottom-4 left-4 flex items-center gap-3">
+                <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shadow-lg">
+                    <div className={`w-2 h-2 rounded-full ${isMuted ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+                    <span className="text-xs text-white font-medium">You (Candidate)</span>
+                    {isMuted && (
+                      <svg className="w-3 h-3 text-white/70 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" crossOrigin="anonymous"/>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                      </svg>
+                    )}
+                </div>
+                
+                {/* Small Mic Visualizer for User */}
+                {!isMuted && (
+                  <div className="h-8 w-20 bg-black/40 backdrop-blur rounded-lg border border-white/10 flex items-center justify-center overflow-hidden">
+                    <AudioVisualizer volume={volume} isActive={true} />
+                  </div>
                 )}
-            </div>
+              </div>
 
-            <canvas ref={canvasRef} className="hidden" />
+              <canvas ref={canvasRef} className="hidden" />
+          </div>
+
+          {/* Persistent Chat History (Bottom) */}
+          <div className="flex-1 bg-slate-800/30 rounded-2xl border border-slate-700/50 p-4 overflow-hidden flex flex-col">
+             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700/50">
+                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Conversation History</span>
+             </div>
+             
+             <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                {transcript.length === 0 && (
+                   <div className="text-center text-slate-500 text-sm mt-10 italic">
+                     Conversation will appear here...
+                   </div>
+                )}
+                {transcript.map((item, idx) => (
+                  <div key={idx} className={`flex flex-col ${item.role === 'user' ? 'items-end' : 'items-start'}`}>
+                     <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
+                       item.role === 'user' 
+                         ? 'bg-blue-600 text-white rounded-br-none' 
+                         : 'bg-slate-700 text-slate-200 rounded-bl-none'
+                     }`}>
+                       {item.text}
+                     </div>
+                     <span className="text-[10px] text-slate-500 mt-1 px-1">
+                       {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                     </span>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+             </div>
+          </div>
         </div>
 
-        {/* AI Interface (Right) */}
+        {/* Right Column: AI Interface */}
         <div className="md:col-span-1 flex flex-col gap-4 h-full">
             
             {/* AI Avatar Card */}
             <div className="flex-1 bg-slate-800/40 rounded-2xl border border-slate-700/50 flex flex-col items-center justify-center p-6 relative overflow-hidden backdrop-blur-sm">
-                {/* Background pulsing effect */}
-                <div className={`absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-purple-500/5 transition-opacity duration-500 ${connectionState === ConnectionState.CONNECTED ? 'opacity-100' : 'opacity-30'}`}></div>
+                {/* Background pulsing effect based on AI volume */}
+                <div 
+                  className={`absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-purple-500/10 transition-opacity duration-100`}
+                  style={{ opacity: Math.max(0.1, aiVolume * 2) }}
+                ></div>
                 
                 <div className="relative z-10 flex flex-col items-center">
                   {/* Avatar Circle */}
                   <div className="relative mb-6">
-                    <div className={`w-28 h-28 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-2xl transition-all duration-500 ${connectionState === ConnectionState.CONNECTED ? 'scale-100 ring-4 ring-indigo-500/20' : 'scale-95 opacity-80 grayscale'}`}>
+                    <div 
+                      className={`w-28 h-28 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-2xl transition-all duration-100`}
+                      style={{ 
+                        transform: `scale(${1 + aiVolume * 0.2})`,
+                        boxShadow: `0 0 ${aiVolume * 30}px rgba(99, 102, 241, 0.5)`
+                      }}
+                    >
                         <svg className="w-14 h-14 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
@@ -234,16 +299,16 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
                   
                   {/* Dynamic Status Text */}
                   <p className={`text-sm text-center mt-2 px-4 font-medium transition-colors duration-300 ${connectionState === ConnectionState.ERROR ? 'text-red-400' : 'text-slate-400'}`}>
-                      {connectionState === ConnectionState.CONNECTED ? "Listening..." : 
+                      {connectionState === ConnectionState.CONNECTED ? (aiVolume > 0.1 ? "Speaking..." : "Listening...") : 
                        connectionState === ConnectionState.CONNECTING ? "Connecting..." : 
                        connectionState === ConnectionState.ERROR ? "Connection Failed" :
                        "Waiting to start"}
                   </p>
                 </div>
 
-                {/* Volume Visualizer */}
+                {/* AI Audio Visualizer */}
                 <div className="mt-auto h-16 w-full flex items-center justify-center z-10">
-                    <AudioVisualizer volume={volume} isActive={connectionState === ConnectionState.CONNECTED} />
+                    <AudioVisualizer volume={aiVolume} isActive={connectionState === ConnectionState.CONNECTED} />
                 </div>
             </div>
 

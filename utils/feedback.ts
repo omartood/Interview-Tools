@@ -15,12 +15,30 @@ export async function generateFeedback(
     .map(t => `${t.role.toUpperCase()}: ${t.text}`)
     .join('\n');
 
+  const jdContext = config.jobDescription 
+    ? `Job Description/Context:\n${config.jobDescription}` 
+    : '';
+    
+  const resumeContext = config.resumeText
+    ? `Candidate Resume:\n${config.resumeText}`
+    : '';
+
+  const personaContext = config.interviewerPersona
+    ? `The interviewer adopted the following persona: "${config.interviewerPersona}". Take this tone into account when evaluating the interaction.`
+    : '';
+
   const prompt = `
     You are an expert technical interviewer and hiring manager.
     Evaluate the following interview for a candidate applying for:
     Role: ${config.targetRole}
     Level: ${config.experienceLevel}
     Company Type: ${config.companyType}
+    
+    ${jdContext}
+    
+    ${resumeContext}
+
+    ${personaContext}
 
     Transcript:
     ${conversationText}
@@ -30,6 +48,8 @@ export async function generateFeedback(
     2. A brief summary (max 3 sentences).
     3. 3 key strengths.
     4. 3 specific areas for improvement.
+    
+    Consider how well the candidate's answers matched their resume experience if provided.
   `;
 
   try {

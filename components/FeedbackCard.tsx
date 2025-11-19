@@ -1,12 +1,13 @@
 import React from 'react';
-import { FeedbackAnalysis } from '../types';
+import { FeedbackAnalysis, TranscriptItem } from '../types';
 
 interface FeedbackCardProps {
   feedback: FeedbackAnalysis;
   onRestart: () => void;
+  transcript: TranscriptItem[];
 }
 
-const FeedbackCard: React.FC<FeedbackCardProps> = ({ feedback, onRestart }) => {
+const FeedbackCard: React.FC<FeedbackCardProps> = ({ feedback, onRestart, transcript }) => {
   // Determine color based on score
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-emerald-400 border-emerald-500/50';
@@ -16,9 +17,25 @@ const FeedbackCard: React.FC<FeedbackCardProps> = ({ feedback, onRestart }) => {
 
   const scoreColor = getScoreColor(feedback.score);
 
+  const handleDownloadTranscript = () => {
+    const content = transcript
+      .map(t => `[${new Date(t.timestamp).toLocaleTimeString()}] ${t.role.toUpperCase()}: ${t.text}`)
+      .join('\n\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `interview-transcript-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 font-inter">
-      <div className="w-full max-w-3xl bg-[#0b1121] border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-3xl bg-[#0b1121] border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden my-8">
         
         {/* Top Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-2 bg-blue-500/20 blur-xl"></div>
@@ -79,15 +96,27 @@ const FeedbackCard: React.FC<FeedbackCardProps> = ({ feedback, onRestart }) => {
             </div>
         </div>
 
-        <button 
-            onClick={onRestart}
-            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-3.5 rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2"
-        >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Start New Interview
-        </button>
+        <div className="flex flex-col gap-3">
+            <button 
+                onClick={onRestart}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-3.5 rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Start New Interview
+            </button>
+
+            <button 
+                onClick={handleDownloadTranscript}
+                className="w-full bg-transparent hover:bg-slate-800 text-slate-400 font-medium py-3.5 rounded-lg transition-all border border-transparent hover:border-slate-700 flex items-center justify-center gap-2"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Full Transcript
+            </button>
+        </div>
 
       </div>
     </div>
