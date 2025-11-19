@@ -1,0 +1,8 @@
+{
+  "name": "InterView.ai - Real-time Mock Interview",
+  "description": "A real-time, multimodal mock interview prep tool powered by Gemini Live API. It sees and hears you to provide realistic interview practice.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
